@@ -222,7 +222,7 @@
                          <div id="user-info" class="hidden text-right">
                             <p id="user-email" class="text-xs sm:text-sm font-semibold truncate"></p>
                          </div>
-                         <button id="show-login-btn" class="btn-primary text-white font-bold py-2 px-4 rounded-lg text-sm">Login</button>
+                         <button id="show-login-btn" class="btn-primary text-white font-bold py-2 px-4 rounded-lg text-sm hidden">Login</button>
                          <button id="logout-btn" class="action-btn hidden" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
                     </div>
                 </div>
@@ -305,22 +305,31 @@
                 logoutBtn.classList.remove('hidden');
                 showLoginBtn.classList.add('hidden');
                 userEmailDisplay.textContent = user.email;
+
+                renderSidebar(currentUserRole);
+
+                if (!isAuthReady) {
+                    isAuthReady = true;
+                    navigate(window.location.hash || '#dashboard');
+                } else {
+                    navigate(window.location.hash || '#dashboard');
+                }
             } else {
+                // Not logged in, show login modal immediately
                 currentUserRole = 'publik';
                 currentUserOrganisasi = null;
-                loginContainer.classList.add('hidden');
+                
+                loginContainer.classList.remove('hidden');
                 userInfo.classList.add('hidden');
                 logoutBtn.classList.add('hidden');
-                showLoginBtn.classList.remove('hidden');
-            }
-            
-            renderSidebar(currentUserRole);
+                showLoginBtn.classList.add('hidden'); // Hide header button when modal is open
 
-            if (!isAuthReady) {
+                mainContent.innerHTML = '';
+                headerTitleContainer.innerHTML = `<h2 id="headerTitle" class="text-lg sm:text-xl font-bold">Selamat Datang</h2>
+                            <p class="text-xs text-white/80">Silakan login untuk melanjutkan</p>`;
+                
+                renderSidebar(currentUserRole);
                 isAuthReady = true;
-                navigate(window.location.hash || '#dashboard');
-            } else {
-                navigate(window.location.hash || '#dashboard');
             }
         });
 
@@ -407,10 +416,12 @@
         
         showLoginBtn.addEventListener('click', () => {
             loginContainer.classList.remove('hidden');
+            showLoginBtn.classList.add('hidden'); // Hide itself when modal opens
         });
 
         document.getElementById('close-login-btn').addEventListener('click', () => {
              loginContainer.classList.add('hidden');
+             showLoginBtn.classList.remove('hidden'); // Show the header login button
         });
 
         const setupPasswordToggle = (toggleButtonId, passwordInputId) => {
@@ -2210,8 +2221,8 @@
             navigate(window.location.hash);
         };
         
-        // Langsung navigasi ke dashboard saat aplikasi dimuat
-        navigate(window.location.hash || '#dashboard');
+        // Initial check, don't navigate yet, just let onAuthStateChanged handle it
+        // navigate(window.location.hash || '#dashboard');
         
         // Splash Screen Logic
         window.addEventListener('load', () => {
@@ -2228,4 +2239,5 @@
     </script>
 </body>
 </html>
+
 
