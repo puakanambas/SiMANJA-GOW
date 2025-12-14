@@ -443,6 +443,13 @@
         // ===================================================================================
         // UTILITY & MODAL FUNCTIONS
         // ===================================================================================
+        
+        const getYoutubeId = (url) => {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        };
+
         const showNotification = (message, isError = false) => {
             const placeholder = document.getElementById('notification-placeholder');
             const id = `notif-${Date.now()}`;
@@ -1029,6 +1036,46 @@
                     </div>`
                 }
             },
+            galeriVideo: {
+                title: 'Galeri Video', collectionName: 'galeriVideo',
+                searchFields: ['judul', 'kategori'],
+                emptyMessage: '<i class="fas fa-video text-4xl text-gray-500 mb-4"></i><h3 class="text-lg">Belum Ada Video</h3>',
+                fields: [
+                    { label: 'Judul Video', name: 'judul', type: 'text', required: true },
+                    { label: 'Link YouTube', name: 'youtubeLink', type: 'text', required: true },
+                    { label: 'Kategori', name: 'kategori', type: 'text', required: true },
+                    { label: 'Tanggal', name: 'tanggal', type: 'date', required: true },
+                    { label: 'Deskripsi', name: 'deskripsi', type: 'textarea' },
+                ],
+                renderCardFn: (v) => {
+                    const videoId = getYoutubeId(v.youtubeLink);
+                    const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : 'https://placehold.co/640x360/000000/FFFFFF/png?text=Video+Tidak+Valid';
+                    
+                    const adminButtons = `
+                        <button data-action="edit-galeriVideo" data-id="${v.id}" class="action-btn" title="Edit"><i class="fas fa-edit text-xs"></i></button>
+                        <button data-action="delete" data-collection="galeriVideo" data-id="${v.id}" data-name="${v.judul}" class="action-btn" title="Hapus"><i class="fas fa-trash text-xs"></i></button>
+                    `;
+                    
+                    return `
+                    <div class="card-base rounded-xl bg-slate-800 overflow-hidden flex flex-col">
+                        <div class="relative group cursor-pointer" data-action="view-galeriVideo" data-id="${v.id}">
+                            <img src="${thumbUrl}" class="w-full h-40 object-cover" onerror="this.src='https://placehold.co/640x360/334155/e5e7eb?text=Video'">
+                            <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <i class="fas fa-play-circle text-5xl text-white/80"></i>
+                            </div>
+                            <div class="absolute top-2 right-2 bg-black/70 px-2 py-1 rounded text-xs font-bold">${v.kategori}</div>
+                        </div>
+                        <div class="p-4 flex flex-col flex-grow">
+                            <p class="text-xs text-slate-400 mb-1"><i class="fas fa-calendar-alt mr-2"></i>${v.tanggal}</p>
+                            <h3 class="text-base font-bold leading-tight line-clamp-2">${v.judul}</h3>
+                        </div>
+                        <div class="border-t border-white/10 p-3 flex justify-end space-x-2 bg-slate-800/50">
+                            <button data-action="view-galeriVideo" data-id="${v.id}" class="action-btn" title="Putar"><i class="fas fa-play text-xs"></i></button>
+                            ${currentUserRole === 'admin' ? adminButtons : ''}
+                        </div>
+                    </div>`;
+                }
+            },
             kegiatan: {
                 title: 'Kegiatan', collectionName: 'kegiatan', photoField: 'foto',
                 searchFields: ['nama', 'lokasi'],
@@ -1438,6 +1485,28 @@
                             </div>` : ''}
                         </div>
                     `;
+                } else if (type === 'galeriVideo') {
+                    const videoId = getYoutubeId(data.youtubeLink);
+                    const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}?autoplay=1` : '';
+                    
+                    content = `
+                        <div class="space-y-4">
+                            <div class="aspect-video w-full bg-black rounded-lg overflow-hidden">
+                                ${videoId ? `<iframe src="${embedUrl}" title="${data.judul}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen class="w-full h-full"></iframe>` : '<div class="flex items-center justify-center h-full text-slate-500">Video tidak valid</div>'}
+                            </div>
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <h3 class="text-xl font-bold">${data.judul}</h3>
+                                    <span class="text-xs font-medium bg-pink-600 text-white px-3 py-1 rounded-full">${data.kategori}</span>
+                                </div>
+                                <p class="text-sm text-slate-400 mb-4"><i class="fas fa-calendar-alt mr-2"></i>${data.tanggal}</p>
+                                <div class="bg-slate-800/50 p-4 rounded-lg">
+                                    <h4 class="font-bold mb-2 text-sm text-slate-300">Deskripsi</h4>
+                                    <p class="text-gray-300 whitespace-pre-wrap text-sm">${data.deskripsi || 'Tidak ada deskripsi.'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 } else if (type === 'organisasi') {
                     const infoKetua = data.infoKetua || {};
                     const logo = data.logo ? `<img src="${data.logo}" class="w-24 h-24 rounded-lg object-cover" onerror="this.src='https://placehold.co/96x96/334155/e5e7eb?text=Logo'">` : `<div class="w-24 h-24 rounded-lg bg-slate-700 flex items-center justify-center"><i class="fas fa-sitemap text-4xl"></i></div>`;
@@ -1784,9 +1853,9 @@
             }, (error) => {
                 console.error(`Gagal memuat data untuk koleksi '${type}': `, error);
                 if (grid && error.code === 'permission-denied') {
-                     grid.innerHTML = `<div class="col-span-full text-center py-16 card-base rounded-xl bg-slate-800 flex flex-col items-center justify-center"><i class="fas fa-lock text-3xl text-yellow-400 mb-3"></i><p>Anda tidak memiliki izin untuk melihat data ini.</p><p class="text-sm text-slate-400 mt-2">Pastikan Anda sudah login dan aturan keamanan Firebase sudah benar.</p></div>`;
+                      grid.innerHTML = `<div class="col-span-full text-center py-16 card-base rounded-xl bg-slate-800 flex flex-col items-center justify-center"><i class="fas fa-lock text-3xl text-yellow-400 mb-3"></i><p>Anda tidak memiliki izin untuk melihat data ini.</p><p class="text-sm text-slate-400 mt-2">Pastikan Anda sudah login dan aturan keamanan Firebase sudah benar.</p></div>`;
                 } else if (grid) {
-                     grid.innerHTML = `<div class="col-span-full text-center py-16 card-base rounded-xl bg-slate-800 flex flex-col items-center justify-center"><i class="fas fa-exclamation-triangle text-3xl text-red-400 mb-3"></i><p>Gagal memuat data.</p></div>`;
+                      grid.innerHTML = `<div class="col-span-full text-center py-16 card-base rounded-xl bg-slate-800 flex flex-col items-center justify-center"><i class="fas fa-exclamation-triangle text-3xl text-red-400 mb-3"></i><p>Gagal memuat data.</p></div>`;
                 }
             });
             activeListeners.push(unsub1);
@@ -2077,6 +2146,7 @@
             'organisasi': { title: 'Manajemen Organisasi', render: (params) => renderCardPageFor('organisasi', params) },
             'usulan': { title: 'Usulan Kegiatan', render: (params) => renderCardPageFor('usulan', params) },
             'dokumentasi': { title: 'Manajemen Dokumentasi', render: (params) => renderCardPageFor('dokumentasi', params) },
+            'galeriVideo': { title: 'Galeri Video', render: (params) => renderCardPageFor('galeriVideo', params) },
             'kegiatan': { title: 'Manajemen Kegiatan', render: (params) => renderCardPageFor('kegiatan', params) },
             'pengaturan': { title: 'Pengaturan', render: () => {
                 mainContent.innerHTML = `
@@ -2097,6 +2167,7 @@
                 { href: '#organisasi', icon: 'fa-sitemap', text: 'Organisasi', roles: ['admin', 'organisasi', 'publik'] },
                 { href: '#usulan', icon: 'fa-lightbulb', text: 'Usulan Kegiatan', roles: ['admin', 'organisasi'] },
                 { href: '#dokumentasi', icon: 'fa-file-alt', text: 'Dokumentasi', roles: ['admin', 'organisasi'] },
+                { href: '#galeriVideo', icon: 'fa-video', text: 'Galeri Video', roles: ['admin', 'organisasi', 'publik'] },
                 { href: '#kegiatan', icon: 'fa-calendar-alt', text: 'Kegiatan', roles: ['admin', 'organisasi', 'publik'] },
                 { type: 'divider', roles: ['admin'] },
                 { href: '#pengaturan', icon: 'fa-cog', text: 'Pengaturan', roles: ['admin'] },
@@ -2221,9 +2292,6 @@
             navigate(window.location.hash);
         };
         
-        // Initial check, don't navigate yet, just let onAuthStateChanged handle it
-        // navigate(window.location.hash || '#dashboard');
-        
         // Splash Screen Logic
         window.addEventListener('load', () => {
             const splashScreen = document.getElementById('splash-screen');
@@ -2239,5 +2307,3 @@
     </script>
 </body>
 </html>
-
-
