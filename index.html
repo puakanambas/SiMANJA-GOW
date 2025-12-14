@@ -445,6 +445,7 @@
         // ===================================================================================
         
         const getYoutubeId = (url) => {
+            if (!url) return null;
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
             const match = url.match(regExp);
             return (match && match[2].length === 11) ? match[2] : null;
@@ -525,7 +526,7 @@
         // ===================================================================================
         // IMAGE COMPRESSION
         // ===================================================================================
-        const compressImage = (file, maxWidth = 500) => {
+        const compressImage = (file, maxWidth = 1200) => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
@@ -535,12 +536,22 @@
                     img.src = event.target.result;
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        const scale = maxWidth / img.width;
-                        canvas.width = maxWidth;
-                        canvas.height = img.height * scale;
+                        let width = img.width;
+                        let height = img.height;
+
+                        // Only scale down if image is larger than maxWidth
+                        if (width > maxWidth) {
+                            height *= maxWidth / width;
+                            width = maxWidth;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        
                         const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        resolve(ctx.canvas.toDataURL('image/jpeg', 0.7)); // 70% quality
+                        ctx.drawImage(img, 0, 0, width, height);
+                        // Increase quality to 0.85 for sharper images
+                        resolve(ctx.canvas.toDataURL('image/jpeg', 0.85)); 
                     }
                 }
             });
@@ -577,7 +588,11 @@
                 }
             } catch (e) {
                 console.error("Gagal menyimpan dokumen: ", e);
-                showNotification("Gagal menyimpan data. Periksa konfigurasi Firebase Anda.", true);
+                let msg = "Gagal menyimpan data.";
+                if (e.code === 'permission-denied') {
+                    msg = "Gagal menyimpan: Izin ditolak. Cek Aturan Firebase.";
+                }
+                showNotification(msg, true);
             }
         };
 
@@ -1042,7 +1057,7 @@
                 emptyMessage: '<i class="fas fa-video text-4xl text-gray-500 mb-4"></i><h3 class="text-lg">Belum Ada Video</h3>',
                 fields: [
                     { label: 'Judul Video', name: 'judul', type: 'text', required: true },
-                    { label: 'Link YouTube', name: 'youtubeLink', type: 'text', required: true },
+                    { label: 'Link YouTube (Contoh: https://youtu.be/...)', name: 'youtubeLink', type: 'text', required: true },
                     { label: 'Kategori', name: 'kategori', type: 'text', required: true },
                     { label: 'Tanggal', name: 'tanggal', type: 'date', required: true },
                     { label: 'Deskripsi', name: 'deskripsi', type: 'textarea' },
@@ -1853,7 +1868,7 @@
             }, (error) => {
                 console.error(`Gagal memuat data untuk koleksi '${type}': `, error);
                 if (grid && error.code === 'permission-denied') {
-                      grid.innerHTML = `<div class="col-span-full text-center py-16 card-base rounded-xl bg-slate-800 flex flex-col items-center justify-center"><i class="fas fa-lock text-3xl text-yellow-400 mb-3"></i><p>Anda tidak memiliki izin untuk melihat data ini.</p><p class="text-sm text-slate-400 mt-2">Pastikan Anda sudah login dan aturan keamanan Firebase sudah benar.</p></div>`;
+                      grid.innerHTML = `<div class="col-span-full text-center py-16 card-base rounded-xl bg-slate-800 flex flex-col items-center justify-center"><i class="fas fa-lock text-3xl text-yellow-400 mb-3"></i><p>Anda tidak memiliki izin untuk melihat data ini.</p><p class="text-sm text-slate-400 mt-2">Pastikan Anda sudah login dan aturan keamanan Firebase sudah benar (termasuk untuk koleksi '${type}').</p></div>`;
                 } else if (grid) {
                       grid.innerHTML = `<div class="col-span-full text-center py-16 card-base rounded-xl bg-slate-800 flex flex-col items-center justify-center"><i class="fas fa-exclamation-triangle text-3xl text-red-400 mb-3"></i><p>Gagal memuat data.</p></div>`;
                 }
